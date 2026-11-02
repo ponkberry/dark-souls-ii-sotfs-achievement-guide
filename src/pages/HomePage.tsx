@@ -1,0 +1,152 @@
+import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAchievementProgress } from '../hooks/useAchievementProgress'
+import { useSpellProgress } from '../hooks/useSpellProgress'
+import { ProgressBar } from '../components/ProgressBar'
+import { exportSession, importSession } from '../utils/sessionExport'
+import type { SpellSchool } from '../types'
+
+const sections = [
+  { to: '/walkthrough', title: 'Walkthrough', body: 'Area-by-area route through the game, NG+, and NG++.' },
+  { to: '/achievements', title: 'Achievements', body: 'Track all 38 achievements and their checklists.' },
+  { to: '/spells', title: 'Spells', body: 'Every spell for the four Master achievements.' },
+  { to: '/covenants', title: 'Covenants', body: 'All nine covenants, their ranks, and rewards.' },
+]
+
+const schools: SpellSchool[] = ['Sorcery', 'Miracle', 'Pyromancy', 'Hex']
+
+export function HomePage() {
+  const { completedCount, total, percentComplete } = useAchievementProgress()
+  const { countsFor } = useSpellProgress()
+  const [importError, setImportError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImportFile = (file: File) => {
+    setImportError(null)
+    file
+      .text()
+      .then(importSession)
+      .catch((err: unknown) => {
+        setImportError(err instanceof Error ? err.message : 'Could not import this file.')
+      })
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-10">
+      <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">
+        Dark Souls II: Scholar of the First Sin Achievement Guide
+      </h1>
+      <p className="mt-3 text-slate-600 dark:text-slate-400">
+        A step-by-step walkthrough paired with achievement, spell, and covenant trackers. Your
+        progress is saved in this browser and persists across visits until you reset it.
+      </p>
+
+      <div className="mt-6 rounded-lg border border-slate-200 p-5 dark:border-slate-800">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Before you dive in
+        </h2>
+        <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-600 dark:text-slate-400">
+          <li>
+            You do NOT need to play online to 100% this game; however, online play does make this
+            game decidedly easier.
+          </li>
+          <li>
+            The Walkthrough points you where you should or shouldn't go, with achievements and
+            spells called out right where you find them. Check them off there, or catch up later
+            from their own tabs.
+          </li>
+          <li>
+            Master achievements, multi-part achievements like Gesture Maestro and Gathering of
+            Exiles, and The Dark Soul all fill in automatically from your other progress.
+          </li>
+          <li>
+            Written from the{' '}
+            <a
+              href="https://steamcommunity.com/sharedfiles/filedetails/?id=419088382"
+              target="_blank"
+              rel="noreferrer"
+              className="text-orange-600 hover:underline dark:text-orange-400"
+            >
+              Steam Guide
+            </a>
+            .
+          </li>
+          <li>Everything is saved locally in this browser and stays there until you hit Reset.</li>
+        </ul>
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {sections.map((section) => (
+          <Link
+            key={section.to}
+            to={section.to}
+            className="rounded-lg border border-slate-200 p-5 transition-colors hover:border-orange-400 dark:border-slate-800"
+          >
+            <h2 className="text-lg font-medium text-slate-900 dark:text-white">{section.title}</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{section.body}</p>
+          </Link>
+        ))}
+      </div>
+
+      <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+        <div>
+          <h3 className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">Achievements</h3>
+          <ProgressBar completed={completedCount} total={total} percent={percentComplete} />
+        </div>
+        {schools.map((school) => {
+          const { done, total: schoolTotal } = countsFor(school)
+          return (
+            <div key={school}>
+              <h3 className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">{school}</h3>
+              <ProgressBar
+                completed={done}
+                total={schoolTotal}
+                percent={schoolTotal === 0 ? 0 : Math.round((done / schoolTotal) * 100)}
+              />
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="mt-8 rounded-lg border border-slate-200 p-5 dark:border-slate-800">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Backup &amp; restore
+        </h2>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+          Export your progress to a file you can save or move to another browser. Importing
+          replaces your current progress here and reloads the page.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={exportSession}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            Export progress
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            Import progress
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleImportFile(file)
+              e.target.value = ''
+            }}
+          />
+        </div>
+        {importError && (
+          <p className="mt-2 text-sm text-red-700 dark:text-red-400">{importError}</p>
+        )}
+      </div>
+    </div>
+  )
+}
